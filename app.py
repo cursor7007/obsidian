@@ -2,26 +2,26 @@ from flask import Flask, render_template_string, request, jsonify
 from openai import OpenAI
 import logging
 import os 
-# Hide background logs
+
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
+
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
     api_key=os.environ.get("GROQ_API_KEY"),
- # <--- PASTE GROQ KEY HERE
+ 
 )
 
-# --- MODELS ---
+
 MODELS = [
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
 ]
 
-# --- MATRIX UI ---
+
 html_code = """
 <!DOCTYPE html>
 <html lang="en">
@@ -155,7 +155,7 @@ def home():
 def chat():
     user_msg = request.json.get("message")
     
-    # --- UPDATED IDENTITY: OBSIDIAN ---
+    
     system_instruction = """
     You are 'Obsidian', an Elite Cyber Security AI Assistant made by Cursor.
     
@@ -167,7 +167,7 @@ def chat():
 
     for model in MODELS:
         try:
-            # print(f"Requesting via {model}...")
+            
             response = client.chat.completions.create(
                 model=model,
                 messages=[
