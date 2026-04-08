@@ -24,7 +24,7 @@ MODELS = [
 # --- MATRIX UI ---
 # PASTE YOUR FULL HTML CODE INSIDE THESE TRIPLE QUOTES
 
-"""html_code = """
+html_code = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
