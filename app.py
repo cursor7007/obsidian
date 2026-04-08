@@ -1,20 +1,18 @@
-import os
-import logging
-from flask import Flask, request, jsonify
+from flask import Flask, render_template_string, request, jsonify
 from openai import OpenAI
+import logging
 
-# --- HIDE BACKGROUND LOGS ---
+# Hide background logs
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 app = Flask(__name__)
-
-# --- GROQ API CONFIGURATION ---
-# Render will automatically pull the GROQ_API_KEY from your Environment Variables
+# --- CONFIGURATION ---
 client = OpenAI(
     base_url="https://api.groq.com/openai/v1",
-    api_key=os.environ.get("GROQ_API_KEY"),
+    api_key=os.environ.get("GROQ_API_KEY"),  # <--- Make sure there is a comma here!
 )
+
 
 # --- MODELS ---
 MODELS = [
@@ -22,125 +20,166 @@ MODELS = [
     "llama-3.1-8b-instant",
 ]
 
-# --- THE MATRIX UI ---
+# --- MATRIX UI ---
 html_code = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBSIDIAN AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CYBER-AI</title>
     <style>
-        body {
-            background-color: #000000;
-            color: #00FF41; 
-            font-family: 'Courier New', Courier, monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100dvh;
+            background-color: #000; color: #0f0;
+            font-family: 'Courier New', monospace; overflow: hidden;
         }
-        h1 { text-shadow: 0 0 10px #00FF41; }
-        #chatbox {
-            flex-grow: 1;
-            width: 100%;
-            max-width: 600px;
-            border: 2px solid #00FF41;
-            padding: 15px;
-            overflow-y: auto;
-            margin-bottom: 20px;
-            background-color: #0a0a0a;
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+        #matrix { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        .app-container {
+            position: relative; z-index: 1; display: flex; flex-direction: column;
+            height: 100%; width: 100%; background: transparent;
         }
-        .user-msg { color: #ffffff; margin-bottom: 10px; text-align: right;}
-        .bot-msg { color: #00FF41; margin-bottom: 20px; text-align: left; border-left: 2px solid #00FF41; padding-left: 10px;}
-        #input-area { display: flex; width: 100%; max-width: 600px; }
-        input[type="text"] {
-            flex-grow: 1; background-color: #000; color: #00FF41;
-            border: 1px solid #00FF41; padding: 10px;
-            font-family: 'Courier New', Courier, monospace; outline: none;
+        .header {
+            padding: 25px; text-align: center; border-bottom: 2px solid #0f0;
+            background: rgba(0, 0, 0, 0.9); font-family: 'Press Start 2P', cursive; 
+            font-size: 1.1rem; color: #0f0; text-shadow: 4px 4px 0px #003300; letter-spacing: 1px;
         }
+        #chat-box { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+        .message {
+            max-width: 90%; padding: 15px; font-size: 14px; line-height: 1.5;
+            word-wrap: break-word; position: relative; box-shadow: 0 0 10px #000;
+        }
+        .bot {
+            align-self: flex-start; background-color: rgba(0, 10, 0, 0.9);
+            border: 1px solid #0f0; color: #0f0; border-radius: 0 15px 15px 15px;
+        }
+        .user {
+            align-self: flex-end; background-color: #0f0; color: #000;
+            font-weight: bold; border: 1px solid #0f0; border-radius: 15px 15px 0 15px;
+        }
+        pre {
+            background: #000; padding: 12px; border: 1px dashed #0f0;
+            overflow-x: auto; color: #fff; margin-top: 10px; white-space: pre-wrap;
+        }
+        .input-area {
+            padding: 15px; background: #000; border-top: 2px solid #0f0;
+            display: flex; gap: 10px;
+        }
+        input {
+            flex: 1; padding: 15px; background: #001100; border: 2px solid #005500;
+            color: #0f0; font-family: 'Press Start 2P', cursive; font-size: 10px; outline: none;
+        }
+        input:focus { border-color: #0f0; box-shadow: 0 0 10px #0f0; }
         button {
-            background-color: #00FF41; color: #000; border: none;
-            padding: 10px 20px; cursor: pointer; font-weight: bold;
-            font-family: 'Courier New', Courier, monospace;
+            padding: 0 20px; background: #0f0; color: #000; border: none;
+            font-family: 'Press Start 2P', cursive; font-size: 10px; cursor: pointer;
         }
+        button:active { background: #fff; }
     </style>
 </head>
 <body>
-    <h1>OBSIDIAN TERMINAL</h1>
-    <div id="chatbox">
-        <div class="bot-msg">System Initialized. I am Obsidian, your Elite Cyber Security AI Assistant.</div>
+    <canvas id="matrix"></canvas>
+    <div class="app-container">
+        <div class="header">
+            CYBER-AI<br>
+            <span style="font-size: 0.7em; color: #005500;">by cursor</span>
+        </div>
+        <div id="chat-box">
+            <div class="message bot">
+                SYSTEM ONLINE.<br>> IDENTITY: OBSIDIAN<br>AWAITING INPUT...
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="inp" placeholder="INSERT COMMAND..." onkeypress="if(event.key==='Enter') send()">
+            <button onclick="send()">RUN</button>
+        </div>
     </div>
-    <div id="input-area">
-        <input type="text" id="userInput" placeholder="Enter command..." onkeypress="handleKeyPress(event)">
-        <button onclick="sendMessage()">EXECUTE</button>
-    </div>
-
     <script>
-        function handleKeyPress(e) { if (e.keyCode === 13) sendMessage(); }
-
-        async function sendMessage() {
-            const inputField = document.getElementById("userInput");
-            const message = inputField.value;
-            if (!message) return;
-
-            const chatbox = document.getElementById("chatbox");
-            chatbox.innerHTML += `<div class="user-msg">User: ${message}</div>`;
-            inputField.value = "";
-            chatbox.scrollTop = chatbox.scrollHeight;
-
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
-                });
-                const data = await response.json();
-                chatbox.innerHTML += `<div class="bot-msg">Obsidian: ${data.reply}</div>`;
-                chatbox.scrollTop = chatbox.scrollHeight;
-            } catch (error) {
-                chatbox.innerHTML += `<div class="bot-msg" style="color: red;">Error: Connection failed.</div>`;
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resize); resize();
+        const chars = 'アカサタナハマヤラワ0123456789XYZ'; 
+        const fontSize = 20; 
+        const columns = canvas.width / fontSize;
+        const drops = Array(Math.floor(columns)).fill(1);
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0F0'; ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars.charAt(Math.floor(Math.random() * chars.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
             }
+        }
+        setInterval(drawMatrix, 50);
+
+        async function send() {
+            const inp = document.getElementById("inp");
+            const val = inp.value;
+            const chatBox = document.getElementById("chat-box");
+            if (!val) return;
+            chatBox.innerHTML += `<div class="message user">${val}</div>`;
+            inp.value = ""; chatBox.scrollTop = chatBox.scrollHeight;
+            const loadId = "load-" + Date.now();
+            chatBox.innerHTML += `<div id="${loadId}" class="message bot">Thinking...</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            try {
+                const req = await fetch("/chat", {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message: val })
+                });
+                const res = await req.json();
+                let cleanReply = res.reply
+                    .replace(/</g, "&lt;").replace(/>/g, "&gt;")
+                    .replace(/```([\s\S]*?)```/g, "<pre>$1</pre>")
+                    .replace(/\*\*(.*?)\*\*/g, "<b>$1</b>").replace(/\\n/g, "<br>");
+                document.getElementById(loadId).innerHTML = cleanReply;
+            } catch (e) { document.getElementById(loadId).innerHTML = "CONNECTION ERROR."; }
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
     </script>
 </body>
 </html>
 """
 
-# --- ROUTES ---
-@app.route('/')
+@app.route("/")
 def home():
-    return html_code
+    return render_template_string(html_code)
 
-@app.route('/chat', methods=['POST'])
+@app.route("/chat", methods=["POST"])
 def chat():
     user_msg = request.json.get("message")
-    system_instruction = "You are 'Obsidian', an Elite Cyber Security AI Assistant made by Cursor."
     
+    # --- UPDATED IDENTITY: OBSIDIAN ---
+    system_instruction = """
+    You are 'Obsidian', an Elite Cyber Security AI Assistant.
+    
+    INSTRUCTIONS:
+    1. IF the user asks for a script, tool, or specific code example -> Provide the Python/Bash code immediately in a code block.
+    2. IF the user asks a general question, says hello, or asks for concepts -> Answer normally in text. DO NOT generate code unless asked.
+    3. Be concise, professional, and use a hacker persona.
+    """
+
     for model in MODELS:
         try:
+            # print(f"Requesting via {model}...")
             response = client.chat.completions.create(
                 model=model,
                 messages=[
                     {"role": "system", "content": system_instruction},
                     {"role": "user", "content": user_msg}
-                ]
+                ],
             )
-            reply = response.choices[0].message.content
-            return jsonify({"reply": reply})
+            return jsonify({"reply": response.choices[0].message.content})
         except Exception as e:
-            print(f"Model error: {e}")
-            continue 
-            
-    return jsonify({"reply": "System Error: Unable to reach Groq API."}), 500
+            continue
 
-# --- RENDER DEPLOYMENT FIX ---
-if __name__ == '__main__':
-    # This ensures Render can bind to the correct port and host to clear the 521 Error
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=False)
+    return jsonify({"reply": "System Failure: Check API Key or Internet."})
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8080)
     
