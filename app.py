@@ -25,7 +25,6 @@ html_code = r"""
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OBSIDIAN</title>
-    <!-- Importing the Pixel Font -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <style>
         body { 
@@ -46,8 +45,9 @@ html_code = r"""
             text-shadow: 4px 4px 0px #005500; margin-top: 10px; margin-bottom: 20px; 
             font-size: 2rem; text-align: center; letter-spacing: 2px;
         }
+        /* FIXED: Changed max-width to 95% to fill laptop screens */
         #chatbox { 
-            flex-grow: 1; width: 100%; max-width: 800px; 
+            flex-grow: 1; width: 100%; max-width: 95%; 
             background: rgba(0, 0, 0, 0.75); border: 2px solid #00FF41; 
             border-radius: 8px; padding: 20px; overflow-y: auto; margin-bottom: 20px; 
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.3); backdrop-filter: blur(3px);
@@ -59,7 +59,8 @@ html_code = r"""
         .bot-msg span { display: inline-block; }
         pre { background: #000; padding: 10px; border: 1px dashed #00FF41; overflow-x: auto; color: #fff; font-weight: normal;}
         
-        #input-area { display: flex; width: 100%; max-width: 800px; gap: 10px; }
+        /* FIXED: Changed max-width to 95% */
+        #input-area { display: flex; width: 100%; max-width: 95%; gap: 10px; }
         input { 
             flex-grow: 1; background: rgba(0, 0, 0, 0.8); border: 2px solid #00FF41; 
             color: #00FF41; padding: 12px; font-family: 'Press Start 2P', cursive; 
@@ -100,8 +101,8 @@ html_code = r"""
         const alphabet = katakana + latin + nums;
         
         const fontSize = 16;
-        const columns = canvas.width / fontSize;
-        const drops = [];
+        let columns = canvas.width / fontSize;
+        let drops = [];
         for(let x = 0; x < columns; x++) drops[x] = 1;
 
         function drawMatrix() {
@@ -117,7 +118,16 @@ html_code = r"""
             }
         }
         setInterval(drawMatrix, 33);
-        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+        
+        // FIXED: Dynamically spawn new matrix code when screen is resized
+        window.addEventListener('resize', () => { 
+            canvas.width = window.innerWidth; 
+            canvas.height = window.innerHeight; 
+            let newColumns = canvas.width / fontSize;
+            for(let x = drops.length; x < newColumns; x++) {
+                drops[x] = 1; 
+            }
+        });
 
         // --- CHAT LOGIC ---
         function handleKeyPress(e) { if (e.keyCode === 13) sendMessage(); }
@@ -167,8 +177,7 @@ def chat():
     CRITICAL PROTOCOLS:
     1. You must ONLY answer questions related to cybersecurity, ethical hacking, programming, networking, and IT infrastructure.
     2. If a user asks a question completely unrelated to these topics (e.g., cooking recipes, sports, movies, general trivia), you must REFUSE to answer. Reply with something like: "ACCESS DENIED. I am Obsidian, a specialized Cyber Security AI. I do not process requests outside of my security protocols."
-    3. If anyone asks who made you, who created you, or who your developer is, you must explicitly state: "I was created by Cursor.
-    4. Generate answer in organized forms not continous add bullets too for better understanding"
+    3. If anyone asks who made you, who created you, or who your developer is, you must explicitly state: "I was created by Cursor."
     """
     
     for model in MODELS:
@@ -190,4 +199,3 @@ def chat():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=False)
-    
